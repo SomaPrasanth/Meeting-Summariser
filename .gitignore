@@ -1,0 +1,11 @@
+# Python / Flask
+backend/venv/
+backend/temp/
+__pycache__/
+*.pyc
+
+# Node / React
+frontend/node_modules/
+frontend/build/
+.DS_Store
+npm-debug.log

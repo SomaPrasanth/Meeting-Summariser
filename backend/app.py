@@ -1,71 +1,94 @@
-# app.py
+# backend/app.py
 
 import os
 import whisper
+import google.generativeai as genai
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from transformers import pipeline
 
-# 1. Initialize Flask App and CORS
+# --- 1. App Initialization & API Configuration ---
 app = Flask(__name__)
-CORS(app)  # Allow cross-origin requests from our React frontend
+CORS(app)
 
-# 2. Load Models (this can take a moment, so it's done once on startup)
-print("Loading models...")
-# Using the "base" model for a good balance of speed and accuracy
-whisper_model = whisper.load_model("base") 
-# Using a DistilBART model for summarization
-summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
-print("Models loaded.")
+# --- IMPORTANT ---
+# Paste your Google API key here.
+# Do not share this key publicly.
+API_KEY = "AIzaSyB3OhWq-M6I8XlF7PtFSQirC0SJuiYmqvo"
 
-# 3. Define the API endpoint
+try:
+    genai.configure(api_key=API_KEY)
+    # Initialize the generative model
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    print("Gemini model initialized successfully.")
+except Exception as e:
+    print(f"Error initializing Gemini model: {e}")
+    model = None
+
+# Load the local transcription model
+print("Loading Whisper model...")
+whisper_model = whisper.load_model("base")
+print("Whisper model loaded.")
+
+
+# --- 2. Main API Endpoint ---
 @app.route("/process-audio", methods=["POST"])
 def process_audio_endpoint():
-    # Check if a file was uploaded
+    if model is None:
+        return jsonify({"error": "Gemini model is not configured. Please check your API key."}), 500
+        
     if 'audioFile' not in request.files:
         return jsonify({"error": "No audio file provided"}), 400
 
     audio_file = request.files['audioFile']
+    temp_dir = "temp"
     
-    # Create a temporary directory to store the file
-    if not os.path.exists("temp"):
-        os.makedirs("temp")
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
     
-    temp_file_path = os.path.join("temp", audio_file.filename)
+    temp_file_path = os.path.join(temp_dir, audio_file.filename)
     audio_file.save(temp_file_path)
 
     try:
-        # --- Transcription ---
-        print(f"Transcribing {temp_file_path}...")
+        # Step 1: Transcribe the audio file to text
+        print("Transcribing audio...")
         transcription_result = whisper_model.transcribe(temp_file_path)
         transcript_text = transcription_result["text"]
+        detected_language = transcription_result.get("language", "unknown")
         print("Transcription complete.")
 
-        # --- Summarization ---
-        # Summarizer works best on shorter texts. We'll process in chunks if needed.
-        # For this MVP, we assume the transcript is short enough.
-        print("Summarizing text...")
-        # The model has a max input length, so we truncate for this example
-        max_chunk_length = 1000 
-        summary_result = summarizer(transcript_text[:max_chunk_length], max_length=150, min_length=30, do_sample=False)
-        summary_text = summary_result[0]['summary_text']
-        print("Summarization complete.")
+        # Step 2: Generate a summary using the Gemini API
+        print("Generating summary with Gemini...")
+        
+        # We create a specific prompt for the model
+        prompt = f"""
+        You are an expert meeting summarizer. Please provide a concise, easy-to-read summary 
+        of the following transcript. Focus on the main points, arguments, and conclusions.
 
-        # --- Cleanup ---
-        os.remove(temp_file_path)
+        Transcript:
+        "{transcript_text}"
+        """
+        
+        response = model.generate_content(prompt)
+        summary_text = response.text
+        print("Summary generated.")
 
-        # Return the results
         return jsonify({
             "transcript": transcript_text,
-            "summary": summary_text
+            "summary": summary_text,
+            "language": detected_language
         })
 
     except Exception as e:
-        # Clean up in case of an error
+        print(f"An error occurred during processing: {e}")
+        return jsonify({"error": str(e)}), 500
+        
+    finally:
+        # Ensure the temporary file is always cleaned up
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
-        return jsonify({"error": str(e)}), 500
 
-# 4. Run the App
+
+# --- 3. Run the Application ---
 if __name__ == "__main__":
     app.run(debug=True, port=5001)
+

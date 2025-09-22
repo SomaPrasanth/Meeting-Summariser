@@ -12,3 +12,4 @@ function UploadControls({ onFileChange, onProcessClick, isLoading, isFileSelecte
 }
 
 export default UploadControls;
+

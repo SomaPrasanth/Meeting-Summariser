@@ -23,3 +23,4 @@ function ResultCard({ title, contentToCopy, onCopy, copyKey, copiedKey, children
 }
 
 export default ResultCard;
+

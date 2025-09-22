@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 
-// Import our new components
+// Import our components
 import Header from './components/Header';
 import UploadControls from './components/UploadControls';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -11,7 +11,7 @@ import ResultCard from './components/ResultCard';
 import './App.css'; 
 
 function App() {
-    // State management remains in the main App component
+    // State management
     const [selectedFile, setSelectedFile] = useState(null);
     const [transcript, setTranscript] = useState("");
     const [summary, setSummary] = useState("");
@@ -22,7 +22,7 @@ function App() {
 
     const handleFileChange = (event) => {
         setSelectedFile(event.target.files[0]);
-        // Reset everything when a new file is chosen
+        // Reset everything
         setError("");
         setTranscript("");
         setSummary("");
@@ -59,11 +59,46 @@ function App() {
     const handleCopy = (textToCopy, key) => {
         navigator.clipboard.writeText(textToCopy).then(() => {
             setCopiedKey(key);
-            setTimeout(() => setCopiedKey(null), 2000); // Reset after 2 seconds
+            setTimeout(() => setCopiedKey(null), 2000);
         }, (err) => {
             console.error('Could not copy text: ', err);
         });
     };
+
+    // --- Export Functionality ---
+    const handleExport = () => {
+        // 1. Format the text content for the file
+        const fileContent = `
+=================================
+ Meeting Summary
+=================================
+
+${summary}
+
+=================================
+ Action Items & Decisions
+=================================
+
+${actionItems}
+        `;
+
+        // 2. Create a file in the browser
+        const blob = new Blob([fileContent.trim()], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        
+        // 3. Create a temporary link to trigger the download
+        const link = document.createElement('a');
+        link.href = url;
+        const timestamp = new Date().toISOString().slice(0, 10); // e.g., 2025-09-22
+        link.download = `meeting-summary-${timestamp}.txt`;
+        
+        // 4. Trigger the download and clean up
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+    // --- End of Export Functionality ---
 
     const hasResults = transcript || summary || actionItems;
 
@@ -81,6 +116,13 @@ function App() {
             {error && <p className="error-message">{error}</p>}
             
             {isLoading && <LoadingSpinner />}
+            
+            {/* Export Button Container */}
+            {!isLoading && hasResults && (
+                <div className="export-container">
+                    <button onClick={handleExport}>Export as .txt</button>
+                </div>
+            )}
             
             {!isLoading && hasResults && (
                 <div className="results-grid">

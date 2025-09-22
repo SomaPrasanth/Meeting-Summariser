@@ -1,6 +1,6 @@
 /* General Body Styles */
 body {
-    background-image: linear-gradient(to top, #42B9D6 0%, #e7f0fd 100%);
+    background-image: linear-gradient(to top, #accbee 0%, #e7f0fd 100%);
     background-attachment: fixed; /* Ensures the gradient doesn't scroll with the content */
     
     color: #1c1e21;
@@ -164,6 +164,12 @@ input[type="file"] {
     background-color: #28a745;
     color: white;
     border-color: #28a745;
+}
+
+/* --- Export Button Container --- */
+.export-container {
+    text-align: center;
+    margin-bottom: 2rem; /* Add some space above the results cards */
 }
 
 /* Error Message Style */

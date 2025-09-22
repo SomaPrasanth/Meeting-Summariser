@@ -1,0 +1,175 @@
+/* General Body Styles */
+body {
+    background-image: linear-gradient(to top, #42B9D6 0%, #e7f0fd 100%);
+    background-attachment: fixed; /* Ensures the gradient doesn't scroll with the content */
+    
+    color: #1c1e21;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    margin: 0;
+    min-height: 100vh; /* Ensures gradient covers the full page height */
+}
+
+/* Main App Container */
+.App {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+/* Header Section */
+.App-header {
+    text-align: center;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1); /* Slightly transparent border */
+    margin-bottom: 2rem;
+}
+
+.App-header h1 {
+    font-size: 2.5rem;
+    color: #333;
+}
+
+/* Input Controls Section */
+.controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin: 2rem 0;
+}
+
+/* Modern Button Style */
+button {
+    padding: 12px 24px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    background: linear-gradient(45deg, #007bff, #0056b3);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 123, 255, 0.2);
+}
+
+button:disabled {
+    background: #aaa;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 123, 255, 0.3);
+}
+
+/* File Input Style */
+input[type="file"] {
+    border: 1px solid #ccc;
+    padding: 10px;
+    border-radius: 8px;
+    background-color: white; /* Give file input a solid background */
+}
+
+/* --- Loading Spinner --- */
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    gap: 1rem;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* --- Results Grid & Card Layout --- */
+.results-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+}
+
+.card {
+    background-color: rgba(255, 255, 255, 0.9); /* Slightly transparent white for a frosted glass effect */
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.card:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+/* Card Header (Title + Copy Button) */
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 1rem;
+}
+
+.card-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #0056b3;
+}
+
+/* Card Content */
+.card-content p, .card-content div {
+    line-height: 1.7;
+    white-space: pre-wrap;
+    color: #333;
+}
+
+.card-content ul {
+    padding-left: 20px;
+}
+
+/* --- Copy Button --- */
+.copy-btn {
+    background: #e9ecef;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 0.5rem 0.8rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: #495057;
+    transition: background-color 0.2s;
+}
+
+.copy-btn:hover {
+    background-color: #dde2e6;
+}
+
+.copy-btn.copied {
+    background-color: #28a745;
+    color: white;
+    border-color: #28a745;
+}
+
+/* Error Message Style */
+.error-message {
+    color: #d93025;
+    font-weight: bold;
+    text-align: center;
+}
+

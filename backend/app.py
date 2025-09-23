@@ -62,7 +62,7 @@ def process_audio_endpoint():
         transcript_text = transcription_result["text"]
         detected_language = transcription_result.get("language", "unknown")
         print("Transcription complete.")
-
+        print(transcript_text)
         # --- Summarization ---
         print("Generating summary with Gemini...")
         summary_prompt = f'Transcript summary: "{transcript_text}"'

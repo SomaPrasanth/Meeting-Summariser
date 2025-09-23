@@ -4,7 +4,7 @@ function Header() {
     return (
         <header className="App-header">
             <h1>Smart Meeting Assistant</h1>
-            <p>Upload an audio file to get a transcript, summary, and action items.</p>
+            <p>Upload a file or record a live meeting for a summary and action items.</p>
         </header>
     );
 }

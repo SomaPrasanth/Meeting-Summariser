@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 
@@ -11,7 +11,7 @@ import ResultCard from './components/ResultCard';
 import './App.css'; 
 
 function App() {
-    // State management
+    // --- State Management ---
     const [selectedFile, setSelectedFile] = useState(null);
     const [transcript, setTranscript] = useState("");
     const [summary, setSummary] = useState("");
@@ -19,27 +19,19 @@ function App() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
     const [copiedKey, setCopiedKey] = useState(null);
+    const [isRecording, setIsRecording] = useState(false);
+    
+    // Refs for recording logic
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
 
-    const handleFileChange = (event) => {
-        setSelectedFile(event.target.files[0]);
-        // Reset everything
-        setError("");
-        setTranscript("");
-        setSummary("");
-        setActionItems("");
-        setCopiedKey(null);
-    };
-
-    const handleProcess = async () => {
-        if (!selectedFile) {
-            setError("Please select an audio file first.");
-            return;
-        }
+    // --- Core Functions ---
+    const processAudioData = async (audioData, fileName) => {
         setIsLoading(true);
         setError("");
         
         const formData = new FormData();
-        formData.append('audioFile', selectedFile);
+        formData.append('audioFile', audioData, fileName);
 
         try {
             const response = await axios.post("http://127.0.0.1:5001/process-audio", formData, {
@@ -55,50 +47,121 @@ function App() {
             setIsLoading(false);
         }
     };
+
+    const handleFileChange = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            setSelectedFile(file);
+            setError("");
+            setTranscript("");
+            setSummary("");
+            setActionItems("");
+            setCopiedKey(null);
+        }
+    };
+
+    const handleProcess = () => {
+        if (selectedFile) {
+            processAudioData(selectedFile, selectedFile.name);
+        } else {
+            setError("Please select an audio file first.");
+        }
+    };
+
+    // --- Recording Logic ---
+    const handleStartRecording = async () => {
+        setError("");
+        setTranscript("");
+        setSummary("");
+        setActionItems("");
+        setSelectedFile(null);
+
+        try {
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                audio: true,
+                video: true 
+            });
+
+            setIsRecording(true);
+            audioChunksRef.current = [];
+            
+            // --- FIX: Let the browser choose the mimeType ---
+            // We remove the specific mimeType to allow the browser to use its default.
+            const recorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = recorder;
+
+            // --- FIX: Determine the file extension from the browser's choice ---
+            let fileExtension = 'webm'; // Default
+            if (recorder.mimeType) {
+                // e.g., 'audio/webm;codecs=opus' -> 'webm'
+                fileExtension = recorder.mimeType.split('/')[1].split(';')[0];
+            }
+            
+            recorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
+
+            recorder.onstop = () => {
+                const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType });
+                
+                // --- FIX: Use the determined file extension for the filename ---
+                const timestamp = new Date().toISOString().replace(/:/g, '-');
+                const fileName = `meeting-recording-${timestamp}.${fileExtension}`;
+
+                processAudioData(audioBlob, fileName);
+                
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            recorder.start();
+
+        } catch (err) {
+            setError("Permission denied or an error occurred. Please allow screen/tab sharing to record.");
+            console.error("Recording error:", err);
+            setIsRecording(false);
+        }
+    };
+
+    const handleStopRecording = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
+        }
+    };
     
+    // --- Utility Functions ---
     const handleCopy = (textToCopy, key) => {
         navigator.clipboard.writeText(textToCopy).then(() => {
             setCopiedKey(key);
             setTimeout(() => setCopiedKey(null), 2000);
-        }, (err) => {
-            console.error('Could not copy text: ', err);
         });
     };
 
-    // --- Export Functionality ---
     const handleExport = () => {
-        // 1. Format the text content for the file
         const fileContent = `
 =================================
  Meeting Summary
 =================================
-
 ${summary}
-
 =================================
  Action Items & Decisions
 =================================
-
 ${actionItems}
         `;
 
-        // 2. Create a file in the browser
         const blob = new Blob([fileContent.trim()], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
-        
-        // 3. Create a temporary link to trigger the download
         const link = document.createElement('a');
         link.href = url;
-        const timestamp = new Date().toISOString().slice(0, 10); // e.g., 2025-09-22
+        const timestamp = new Date().toISOString().slice(0, 10);
         link.download = `meeting-summary-${timestamp}.txt`;
-        
-        // 4. Trigger the download and clean up
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
     };
-    // --- End of Export Functionality ---
 
     const hasResults = transcript || summary || actionItems;
 
@@ -111,13 +174,15 @@ ${actionItems}
                 onProcessClick={handleProcess}
                 isLoading={isLoading}
                 isFileSelected={!!selectedFile}
+                isRecording={isRecording}
+                onStartRecording={handleStartRecording}
+                onStopRecording={handleStopRecording}
             />
             
             {error && <p className="error-message">{error}</p>}
             
             {isLoading && <LoadingSpinner />}
             
-            {/* Export Button Container */}
             {!isLoading && hasResults && (
                 <div className="export-container">
                     <button onClick={handleExport}>Export as .txt</button>
@@ -137,7 +202,6 @@ ${actionItems}
                             <ReactMarkdown children={actionItems} />
                         </ResultCard>
                     )}
-
                     {summary && (
                         <ResultCard
                             title="Summary"
@@ -149,7 +213,6 @@ ${actionItems}
                             <p>{summary}</p>
                         </ResultCard>
                     )}
-
                     {transcript && (
                         <ResultCard
                             title="Full Transcript"

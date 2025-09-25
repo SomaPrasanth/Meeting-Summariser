@@ -7,6 +7,7 @@ import Header from './components/Header';
 import UploadControls from './components/UploadControls';
 import LoadingSpinner from './components/LoadingSpinner';
 import ResultCard from './components/ResultCard';
+import CustomAnalysis from './components/CustomAnalysis';
 
 import './App.css'; 
 
@@ -20,15 +21,30 @@ function App() {
     const [error, setError] = useState("");
     const [copiedKey, setCopiedKey] = useState(null);
     const [isRecording, setIsRecording] = useState(false);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [customResult, setCustomResult] = useState("");
     
-    // Refs for recording logic
+    // NEW: State for transcript truncation
+    const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(false);
+
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
 
     // --- Core Functions ---
+    const resetState = (clearFile = false) => {
+        if (clearFile) setSelectedFile(null);
+        setError("");
+        setTranscript("");
+        setSummary("");
+        setActionItems("");
+        setCopiedKey(null);
+        setCustomResult("");
+        setIsTranscriptExpanded(false); // Reset transcript view
+    };
+
     const processAudioData = async (audioData, fileName) => {
         setIsLoading(true);
-        setError("");
+        resetState();
         
         const formData = new FormData();
         formData.append('audioFile', audioData, fileName);
@@ -41,7 +57,7 @@ function App() {
             setSummary(response.data.summary);
             setActionItems(response.data.action_items);
         } catch (err) {
-            setError("An error occurred. Please try again.");
+            setError("An error occurred during analysis. Please try again.");
             console.error(err);
         } finally {
             setIsLoading(false);
@@ -52,11 +68,7 @@ function App() {
         const file = event.target.files[0];
         if (file) {
             setSelectedFile(file);
-            setError("");
-            setTranscript("");
-            setSummary("");
-            setActionItems("");
-            setCopiedKey(null);
+            resetState();
         }
     };
 
@@ -68,95 +80,76 @@ function App() {
         }
     };
 
-    // --- Recording Logic ---
-    const handleStartRecording = async () => {
+    const handleCustomAnalysis = async (customPrompt) => {
+        setIsAnalyzing(true);
+        setCustomResult("");
         setError("");
-        setTranscript("");
-        setSummary("");
-        setActionItems("");
-        setSelectedFile(null);
-
+        try {
+            const response = await axios.post("http://127.0.0.1:5001/custom-analysis", {
+                transcript: transcript,
+                custom_prompt: customPrompt
+            });
+            setCustomResult(response.data.result);
+        } catch (err) {
+            setError("Custom analysis failed. Please try again.");
+            console.error("Custom analysis error:", err);
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+    
+    const handleStartRecording = async () => {
+        resetState(true);
         try {
             const stream = await navigator.mediaDevices.getDisplayMedia({
                 audio: true,
-                video: true 
+                video: true
             });
-
             setIsRecording(true);
             audioChunksRef.current = [];
-            
-            // --- FIX: Let the browser choose the mimeType ---
-            // We remove the specific mimeType to allow the browser to use its default.
             const recorder = new MediaRecorder(stream);
             mediaRecorderRef.current = recorder;
 
-            // --- FIX: Determine the file extension from the browser's choice ---
-            let fileExtension = 'webm'; // Default
-            if (recorder.mimeType) {
-                // e.g., 'audio/webm;codecs=opus' -> 'webm'
-                fileExtension = recorder.mimeType.split('/')[1].split(';')[0];
-            }
-            
             recorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    audioChunksRef.current.push(event.data);
-                }
+                if (event.data.size > 0) audioChunksRef.current.push(event.data);
             };
 
             recorder.onstop = () => {
-                const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType });
-                
-                // --- FIX: Use the determined file extension for the filename ---
-                const timestamp = new Date().toISOString().replace(/:/g, '-');
-                const fileName = `meeting-recording-${timestamp}.${fileExtension}`;
-
+                const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
+                const fileExtension = mimeType.split('/')[1].split(';')[0];
+                const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+                const fileName = `meeting-recording-${new Date().toISOString().replace(/[:.]/g, '-')}.${fileExtension}`;
                 processAudioData(audioBlob, fileName);
-                
                 stream.getTracks().forEach(track => track.stop());
             };
-
             recorder.start();
-
         } catch (err) {
             setError("Permission denied or an error occurred. Please allow screen/tab sharing to record.");
             console.error("Recording error:", err);
             setIsRecording(false);
         }
     };
-
+    
     const handleStopRecording = () => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
             mediaRecorderRef.current.stop();
-            setIsRecording(false);
         }
+        setIsRecording(false);
     };
     
-    // --- Utility Functions ---
     const handleCopy = (textToCopy, key) => {
         navigator.clipboard.writeText(textToCopy).then(() => {
             setCopiedKey(key);
             setTimeout(() => setCopiedKey(null), 2000);
-        });
+        }, (err) => console.error('Could not copy text: ', err));
     };
 
-    const handleExport = () => {
-        const fileContent = `
-=================================
- Meeting Summary
-=================================
-${summary}
-=================================
- Action Items & Decisions
-=================================
-${actionItems}
-        `;
-
-        const blob = new Blob([fileContent.trim()], { type: 'text/plain;charset=utf-8' });
+    const handleExport = (content, fileName) => {
+        const blob = new Blob([content.trim()], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        const timestamp = new Date().toISOString().slice(0, 10);
-        link.download = `meeting-summary-${timestamp}.txt`;
+        link.download = fileName;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -164,11 +157,17 @@ ${actionItems}
     };
 
     const hasResults = transcript || summary || actionItems;
+    
+    // NEW: Logic for truncating the transcript
+    const transcriptLines = transcript.split('\n');
+    const isTranscriptLong = transcript.length > 1000;
+    
+    const truncatedTranscript = isTranscriptLong ? transcript.slice(0, 1000) : transcript;
+
 
     return (
         <div className="App">
             <Header />
-
             <UploadControls 
                 onFileChange={handleFileChange}
                 onProcessClick={handleProcess}
@@ -178,50 +177,42 @@ ${actionItems}
                 onStartRecording={handleStartRecording}
                 onStopRecording={handleStopRecording}
             />
-            
             {error && <p className="error-message">{error}</p>}
-            
             {isLoading && <LoadingSpinner />}
             
             {!isLoading && hasResults && (
-                <div className="export-container">
-                    <button onClick={handleExport}>Export as .txt</button>
-                </div>
+                <CustomAnalysis onAnalyze={handleCustomAnalysis} isLoading={isAnalyzing} />
             )}
-            
+
+            {isAnalyzing && <LoadingSpinner />}
+            {customResult && (
+                <ResultCard title="Custom Analysis Result" contentToCopy={customResult} onCopy={handleCopy} onExport={handleExport} copyKey="custom" copiedKey={copiedKey}>
+                    <ReactMarkdown children={customResult} />
+                </ResultCard>
+            )}
+
             {!isLoading && hasResults && (
                 <div className="results-grid">
                     {actionItems && (
-                        <ResultCard
-                            title="Action Items & Decisions"
-                            contentToCopy={actionItems}
-                            onCopy={handleCopy}
-                            copyKey="action"
-                            copiedKey={copiedKey}
-                        >
+                        <ResultCard title="Action Items & Decisions" contentToCopy={actionItems} onCopy={handleCopy} onExport={handleExport} copyKey="action" copiedKey={copiedKey}>
                             <ReactMarkdown children={actionItems} />
                         </ResultCard>
                     )}
                     {summary && (
-                        <ResultCard
-                            title="Summary"
-                            contentToCopy={summary}
-                            onCopy={handleCopy}
-                            copyKey="summary"
-                            copiedKey={copiedKey}
-                        >
+                        <ResultCard title="Summary" contentToCopy={summary} onCopy={handleCopy} onExport={handleExport} copyKey="summary" copiedKey={copiedKey}>
                             <p>{summary}</p>
                         </ResultCard>
                     )}
                     {transcript && (
-                        <ResultCard
-                            title="Full Transcript"
-                            contentToCopy={transcript}
-                            onCopy={handleCopy}
-                            copyKey="transcript"
-                            copiedKey={copiedKey}
-                        >
-                            <p>{transcript}</p>
+                        <ResultCard title="Full Transcript" contentToCopy={transcript} onCopy={handleCopy} onExport={handleExport} copyKey="transcript" copiedKey={copiedKey}>
+                            <p style={{whiteSpace: 'pre-wrap'}}>
+                                {isTranscriptExpanded ? transcript : truncatedTranscript}
+                            </p>
+                            {isTranscriptLong && (
+                                <button onClick={() => setIsTranscriptExpanded(!isTranscriptExpanded)} className="read-more-btn">
+                                    {isTranscriptExpanded ? 'Show Less' : 'Read More...'}
+                                </button>
+                            )}
                         </ResultCard>
                     )}
                 </div>

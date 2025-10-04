@@ -12,6 +12,7 @@ import CustomAnalysis from './components/CustomAnalysis';
 import './App.css'; 
 
 function App() {
+    const BACKEND_URL = 'https://smart-meeting-backend.onrender.com'
     // --- State Management ---
     const [selectedFile, setSelectedFile] = useState(null);
     const [transcript, setTranscript] = useState("");
@@ -50,7 +51,7 @@ function App() {
         formData.append('audioFile', audioData, fileName);
 
         try {
-            const response = await axios.post("http://127.0.0.1:5001/process-audio", formData, {
+            const response = await axios.post(`${BACKEND_URL}/process-audio`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             setTranscript(response.data.transcript);
@@ -85,7 +86,7 @@ function App() {
         setCustomResult("");
         setError("");
         try {
-            const response = await axios.post("http://127.0.0.1:5001/custom-analysis", {
+            const response = await axios.post(`${BACKEND_URL}/custom-analysis`, {
                 transcript: transcript,
                 custom_prompt: customPrompt
             });

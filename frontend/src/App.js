@@ -12,7 +12,7 @@ import CustomAnalysis from './components/CustomAnalysis';
 import './App.css'; 
 
 function App() {
-    const BACKEND_URL = 'https://smart-meeting-backend.onrender.com'
+    const BACKEND_URL = 'https://meeting-summariser-018c.onrender.com'
     // --- State Management ---
     const [selectedFile, setSelectedFile] = useState(null);
     const [transcript, setTranscript] = useState("");

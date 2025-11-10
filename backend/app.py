@@ -15,7 +15,7 @@ app = Flask(__name__)
 CORS(app)
 
 try:
-    genai.configure(api_key=os.getenv("AIzaSyB3OhWq-M6I8XlF7PtFSQirC0SJuiYmqvo"))
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
     print("Gemini API key configured.")
 except Exception as e:
     print(f"Error configuring Gemini API: {e}")

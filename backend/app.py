@@ -1,5 +1,5 @@
 
-#AIzaSyB3OhWq-M6I8XlF7PtFSQirC0SJuiYmqvo
+
 import os
 import whisper
 import google.generativeai as genai
